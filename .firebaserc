@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "godigi-8af79",
+    "prod": "ontrip-godigi-driver"
+  }
+}
