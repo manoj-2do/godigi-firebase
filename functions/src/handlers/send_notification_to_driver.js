@@ -23,7 +23,7 @@ exports.sendNotificationToDriver = onRequest(
      *                  "fleet_id": 1290023, 
      *              }
      */
-    const { fleet_id, job_ids, title, body, data } = request.body;
+    const { fleet_id, task_ids, title, body, data } = request.body;
     
     const validationError = validateNotificationPayload(request.body);
     if (validationError) {
@@ -47,7 +47,7 @@ exports.sendNotificationToDriver = onRequest(
         const results = [];
 
         for (const device of devices) {
-            const result = await sendPushToDevice(device, { fleet_id, job_ids, title, body, data });
+            const result = await sendPushToDevice(device, { fleet_id, task_ids, title, body, data });
 
             results.push(result);
             response.write(`data: ${JSON.stringify(result)}\n\n`);

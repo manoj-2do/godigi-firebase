@@ -1,6 +1,6 @@
 /* eslint-disable */
 exports.validateNotificationPayload = (body) => {
-  const { fleet_id, job_ids, title, body: msgBody, data } = body;
+  const { fleet_id, task_ids, title, body: msgBody, data } = body;
 
   if (!fleet_id)
     return "fleet_id is required";
@@ -8,14 +8,14 @@ exports.validateNotificationPayload = (body) => {
   if (isNaN(Number(fleet_id)))
     return "fleet_id must be a number";
 
-  if (!job_ids)
-    return "job_ids is required";
+  if (!task_ids)
+    return "task_ids is required";
 
-  if (!Array.isArray(job_ids) || job_ids.length === 0)
-    return "job_ids must be a non-empty array";
+  if (!Array.isArray(task_ids) || task_ids.length === 0)
+    return "task_ids must be a non-empty array";
 
-  if (job_ids.some((id) => isNaN(Number(id))))
-    return "all job_ids must be numbers";
+  if (task_ids.some((id) => isNaN(Number(id))))
+    return "all task_ids must be numbers";
 
   if (!title || typeof title !== "string" || !title.trim())
     return "title must be a non-empty string";

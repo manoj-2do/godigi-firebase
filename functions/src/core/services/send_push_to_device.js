@@ -1,7 +1,7 @@
 /* eslint-disable */
 const admin = require("firebase-admin");
 
-exports.sendPushToDevice = async (device, { fleet_id, job_ids, title, body, data }) => {
+exports.sendPushToDevice = async (device, { fleet_id, task_ids, title, body, data }) => {
     const fcmToken = device.fcm_token;
 
     if (!fcmToken) {
@@ -23,8 +23,8 @@ exports.sendPushToDevice = async (device, { fleet_id, job_ids, title, body, data
         payloadData.fleet_id = `${fleet_id}`;
     }
 
-    if (Array.isArray(job_ids) && job_ids.length > 0) {
-        payloadData.job_ids = job_ids.join(",");
+    if (Array.isArray(task_ids) && task_ids.length > 0) {
+        payloadData.task_ids = task_ids.join(",");
     }
 
     try {
