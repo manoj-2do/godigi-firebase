@@ -4,6 +4,7 @@ const SCHEMA = {
   task_id:             { type: "int",  required: true },
   task_status:         { type: "intRange", required: true, min: 0, max: 5 },
   booking_code:        { type: "string",  required: true },
+  component_code:      { type: "string",  required: true },
   requirement_code:    { type: "string",  required: true },
   fleet_id:            { type: "int",  required: true },
   driver_name:         { type: "string",  required: true },
@@ -49,7 +50,13 @@ const validateField = (key, value, rule) => {
   return null;
 };
 
+const FORBIDDEN_CLIENT_KEYS = ["token", "tracking_token", "token_expires_at", "tokenExpiresAt"];
+
 const validateCreateTaskBody = (body) => {
+  const forbidden = FORBIDDEN_CLIENT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(body, k));
+  if (forbidden.length > 0) {
+    return [`Must not send client-controlled fields: ${forbidden.join(", ")}`];
+  }
   return Object.entries(SCHEMA)
     .map(([key, rule]) => validateField(key, body[key], rule))
     .filter(Boolean);

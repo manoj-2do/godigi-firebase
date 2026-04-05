@@ -27,8 +27,17 @@ const createTripTrackingInFirestore = async (job_id, data) => {
 };
 
 const createTaskInFirestore = async (task_id, data) => {
-  const ref = admin.firestore().collection(config.collections.tasks).doc(`${task_id}`);
-  await ref.set(data, { merge: true });
+  const db = admin.firestore();
+  const ref = db.collection(config.collections.tasks).doc(`${task_id}`);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (snap.exists) {
+      const err = new Error("A task with this task_id already exists");
+      err.code = "TASK_ID_ALREADY_EXISTS";
+      throw err;
+    }
+    transaction.set(ref, data);
+  });
 };
 
 module.exports = {
