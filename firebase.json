@@ -42,12 +42,12 @@
     "singleProjectMode": true
   },
   "hosting": {
-    "public": "build/web",
+    "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
         "source": "/track/**",
-        "destination": "/tracking/index.html"
+        "destination": "/index.html"
       }
     ]
   }

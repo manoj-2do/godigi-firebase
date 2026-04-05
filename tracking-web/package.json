@@ -1,0 +1,17 @@
+{
+  "name": "tracking-web",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "terser": "^5.46.1",
+    "vite": "^8.0.3"
+  }
+}
