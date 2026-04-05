@@ -3,15 +3,10 @@ const admin = require("firebase-admin");
 const config = require("../config");
 const { FieldValue } = require("firebase-admin/firestore");
 
-//Replacing this 
-const createUserInFirestore = async (uid, {email, display_name, phone_number, fleet_id, supplier_id}) => {
-  await admin.firestore().collection(config.collections.users).doc(`${fleet_id}`).set({
+const createUserInFirestore = async (uid, doc) => {
+  await admin.firestore().collection(config.collections.users).doc(uid).set({
+    ...doc,
     uid,
-    email,
-    display_name: display_name ? display_name : "",
-    phone_number: phone_number ? phone_number : "",
-    fleet_id: fleet_id ? fleet_id : null,
-    supplier_id: supplier_id ? supplier_id : null,
     status: true,
     created_at: FieldValue.serverTimestamp(),
   });

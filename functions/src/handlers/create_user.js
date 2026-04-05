@@ -2,29 +2,42 @@
 
 const { onRequest } = require("firebase-functions/v2/https");
 const { validateSecret } = require("../core/middleware/validate_secret");
-const { validateCreateUserBody } = require("../core/validators/user_validators");
-const { createAuthUser, setCustomClaims, deleteAuthUser } = require("../core/services/auth_service");
+const { validateCreateUserBody } = require("../core/validators/create_user_payload_validators");
+const { buildCreateUserDoc } = require("../core/builders/create_user_doc_builder");
+const { createAuthUser, getUserByEmail, deleteAuthUser } = require("../core/services/auth_service");
 const { createUserInFirestore } = require("../core/services/firestore_service");
-const { logAudit } = require("../core/services/audit_service");
-const config = require("../core/config");
 
 exports.createUserService = onRequest(
   async (request, response) => {
     if (!validateSecret(request, response)) return;
-    if (!validateCreateUserBody(request.body, response)) return;
 
-    const { email, password, display_name, phone_number, fleet_id, supplier_id } = request.body;
+    if (request.method !== "POST") {
+      response.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    const body = request.body || {};
+    const errors = validateCreateUserBody(body);
+
+    if (errors.length > 0) {
+      response.status(400).json({ errors });
+      return;
+    }
+
+    const { auth, doc } = buildCreateUserDoc(body);
 
     let userRecord;
 
     try {
-      userRecord = await createAuthUser({ email, password, display_name });
-      
-      // if (fleet_id) {
-      //   await setCustomClaims(userRecord.uid, { fleet_id: fleet_id });
-      // }
+      const existing = await getUserByEmail(auth.email);
+      if (existing) {
+        response.status(409).json({ error: "User already exists" });
+        return;
+      }
 
-      await createUserInFirestore(userRecord.uid, { email, display_name, phone_number, fleet_id, supplier_id });
+      userRecord = await createAuthUser(auth);
+
+      await createUserInFirestore(userRecord.uid, doc);
 
       response.status(200).json({
         uid: userRecord.uid,
@@ -32,6 +45,10 @@ exports.createUserService = onRequest(
         created_at: new Date().toISOString(),
       });
     } catch (e) {
+      if (e.code === "auth/email-already-exists") {
+        response.status(409).json({ error: "User already exists" });
+        return;
+      }
       if (userRecord) await deleteAuthUser(userRecord.uid);
       response.status(500).json({ error: e.message });
     }
