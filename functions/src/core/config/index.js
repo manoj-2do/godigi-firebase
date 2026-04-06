@@ -13,6 +13,7 @@ module.exports = {
     users: "users",
     auditLogs: "audit_logs",
     supplierConfig: "supplier_config",
+    suppliers: "suppliers",
     tripTracking: "trip_tracking",
     tasks: "tasks",
   },

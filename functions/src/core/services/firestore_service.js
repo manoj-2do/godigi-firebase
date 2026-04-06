@@ -40,8 +40,23 @@ const createTaskInFirestore = async (task_id, data) => {
   });
 };
 
+const createSupplierInFirestore = async (supplier_id, data) => {
+  const db = admin.firestore();
+  const ref = db.collection(config.collections.suppliers).doc(`${supplier_id}`);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (snap.exists) {
+      const err = new Error("A supplier with this supplier_id already exists");
+      err.code = "SUPPLIER_ID_ALREADY_EXISTS";
+      throw err;
+    }
+    transaction.set(ref, data);
+  });
+};
+
 module.exports = {
   createSupplierConfigInFirestore,
+  createSupplierInFirestore,
   createUserInFirestore,
   createTripTrackingInFirestore,
   createTaskInFirestore
