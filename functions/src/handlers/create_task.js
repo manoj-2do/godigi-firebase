@@ -5,13 +5,7 @@ const { validateSecret } = require("../core/middleware/validate_secret");
 const { validateCreateTaskBody } = require("../core/validators/create_task_payload_validators");
 const { buildCreateTaskDoc } = require("../core/builders/create_task_doc_builder");
 const { createTaskInFirestore } = require("../core/services/firestore_service");
-const config = require("../core/config");
-
-const buildTrackingLink = (taskId, token) => {
-  const base = config.trackingHostUrl && String(config.trackingHostUrl).replace(/\/$/, "");
-  if (!base) return null;
-  return `${base}/track/${encodeURIComponent(String(taskId))}/${encodeURIComponent(token)}`;
-};
+const { buildTrackingLink } = require("../core/utils/tracking_link");
 
 exports.createTaskService = onRequest(
   async (request, response) => {
@@ -36,9 +30,9 @@ exports.createTaskService = onRequest(
       await createTaskInFirestore(doc.task_id, doc);
       response.status(200).json({
         task_id: doc.task_id,
-        token: doc.token,
-        tracking_link: buildTrackingLink(doc.task_id, doc.token),
-        token_expires_at: doc.token_expires_at.toDate().toISOString(),
+        link_signature: doc.link_signature,
+        tracking_link: buildTrackingLink(doc.link_signature),
+        tracking_link_expires_at: doc.tracking_link_expires_at.toDate().toISOString(),
         success: true,
       });
     } catch (e) {

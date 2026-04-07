@@ -50,7 +50,16 @@ const validateField = (key, value, rule) => {
   return null;
 };
 
-const FORBIDDEN_CLIENT_KEYS = ["token", "tracking_token", "token_expires_at", "tokenExpiresAt"];
+const FORBIDDEN_CLIENT_KEYS = [
+  "token",
+  "tracking_token",
+  "token_expires_at",
+  "tokenExpiresAt",
+  "link_signature",
+  "linkSignature",
+  "tracking_link_expires_at",
+  "trackingLinkExpiresAt",
+];
 
 const validateCreateTaskBody = (body) => {
   const forbidden = FORBIDDEN_CLIENT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(body, k));

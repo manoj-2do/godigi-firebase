@@ -1,10 +1,17 @@
-import { doc, onSnapshot }            from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  query,
+  Timestamp,
+  where,
+} from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
 import { log, logErr }                from './config.js';
 import { isHeadingToPickup, isArrivedOrBeyond, isLiveTrackingStatus } from './status.js';
 import { showPanel, setHeading, applyArrivedUI, setupStaticUI, startCountdown }      from './ui.js';
 import { initMap, updateDriverMarker }                                                from './map.js';
 
-export function createTrackingController(db, taskId, token) {
+export function createTrackingController(db, { linkSignature }) {
   let unsubscribe    = null;
   let initialised    = false;
   let countdownTimer = null;
@@ -19,20 +26,20 @@ export function createTrackingController(db, taskId, token) {
   function handleExpired() { detach('expired'); showPanel('expired'); }
   function handleArrived() { detach('arrived'); applyArrivedUI(); }
 
-  function handleSnapshot(snap) {
+  function handleDocSnapshot(docSnap) {
     readCount++;
-    log(`📡 Read #${readCount} | exists: ${snap.exists()}`);
-    if (!snap.exists()) { handleExpired(); return; }
+    log(`📡 Read #${readCount} | exists: ${docSnap.exists()}`);
+    if (!docSnap.exists()) { handleExpired(); return; }
 
-    const d      = snap.data();
+    const d      = docSnap.data();
     const status = d.task_status;
     log(`   task_status: ${status}`);
 
     if (!initialised) {
-      const storedToken = d.token ?? d.tracking_token;
-      if (!storedToken || storedToken !== token) { handleExpired(); return; }
+      const storedToken = d.link_signature ?? d.token ?? d.tracking_token;
+      if (!storedToken || storedToken !== linkSignature) { handleExpired(); return; }
 
-      const expiryField = d.token_expires_at ?? d.tokenExpiresAt;
+      const expiryField = d.tracking_link_expires_at ?? d.token_expires_at ?? d.tokenExpiresAt;
       if (expiryField?.toDate() < new Date()) { handleExpired(); return; }
 
       const pLat = parseFloat(d.pickup_lat ?? d.pickupLat);
@@ -78,12 +85,25 @@ export function createTrackingController(db, taskId, token) {
 
   return {
     start() {
+      const q = query(
+        collection(db, 'tasks'),
+        where('link_signature', '==', linkSignature),
+        where('tracking_link_expires_at', '>', Timestamp.now()),
+        limit(1),
+      );
       unsubscribe = onSnapshot(
-        doc(db, 'tasks', String(taskId)),
-        handleSnapshot,
+        q,
+        snap => {
+          if (snap.empty) {
+            detach('no-task-for-url');
+            showPanel('not-found');
+            return;
+          }
+          handleDocSnapshot(snap.docs[0]);
+        },
         err => { logErr('Firestore error', err); handleExpired(); },
       );
-      log(`✅ Listener attached | taskId: ${taskId}`);
+      log(`✅ Query listener | link_signature: ${linkSignature}`);
     },
   };
 }

@@ -5,20 +5,28 @@ import { showPanel }                 from './ui.js';
 import { createTrackingController }  from './controller.js';
 
 function parseUrlParams() {
-  const parts  = window.location.pathname.split('/').filter(Boolean);
-  const token  = parts.pop()?.replace(/[^a-zA-Z0-9-]/g, '');
-  const taskId = parts.pop()?.replace(/[^a-zA-Z0-9-]/g, '');
-  return { token, taskId };
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts.length !== 2 || parts[0] !== 'track') {
+    return null;
+  }
+  const linkSignature = decodeURIComponent(parts[1]);
+  if (!linkSignature) {
+    return null;
+  }
+  return { linkSignature };
 }
 
 window.onload = () => {
   showPanel('loader');
 
-  const { token, taskId } = parseUrlParams();
-  if (!token || !taskId) { showPanel('not-found'); return; }
+  const parsed = parseUrlParams();
+  if (!parsed) {
+    showPanel('not-found');
+    return;
+  }
 
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
 
-  createTrackingController(db, taskId, token).start();
+  createTrackingController(db, parsed).start();
 };
