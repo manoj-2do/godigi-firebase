@@ -18,6 +18,7 @@ const buildCreateTaskDoc = (body) => {
       booking_code:        String(body.booking_code),
       component_code:      component_code,
       requirement_code:    String(body.requirement_code),
+      supplier_id:         Number(body.supplier_id),
       driver_name:         String(body.driver_name),
       driver_phone_number: String(body.driver_phone_number),
       fleet_id:            Number(body.fleet_id),

@@ -12,8 +12,8 @@ const { getTrackingLink } = require("./src/handlers/get_tracking_link.js");
 admin.initializeApp();
 
 exports.createUserService = createUserService;
-exports.createSupplierConfigService = createSupplierConfigService;
-exports.createTripService = createTripService;
+exports.createSupplierConfigService = createSupplierConfigService; //INACTIVE
+exports.createTripService = createTripService; // INACTIVE
 exports.sendNotificationToDriver = sendNotificationToDriver;
 exports.createTaskService = createTaskService;
 exports.createSupplier = createSupplier;

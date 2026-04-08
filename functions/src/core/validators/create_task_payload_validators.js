@@ -7,6 +7,7 @@ const SCHEMA = {
   component_code:      { type: "string",  required: true },
   requirement_code:    { type: "string",  required: true },
   fleet_id:            { type: "int",  required: true },
+  supplier_id:         { type: "int",  required: true },
   driver_name:         { type: "string",  required: true },
   driver_phone_number: { type: "string",  required: false },
   guest_name:          { type: "string",  required: true },
