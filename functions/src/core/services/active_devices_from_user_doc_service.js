@@ -1,11 +1,25 @@
 /* eslint-disable */
 const admin = require("firebase-admin");
 
-exports.getActiveDevicesFromUserDoc = async (uid) => {
-  const snapshot = await admin
-    .firestore()
+exports.getActiveDevicesFromUserDoc = async (fleet_id) => {
+  const fleetIdNum = Number(fleet_id);
+  if (!Number.isInteger(fleetIdNum)) {
+    return [];
+  }
+
+  const db = admin.firestore();
+  const usersSnap = await db
     .collection("users")
-    .doc(uid)
+    .where("fleet_id", "==", fleetIdNum)
+    .limit(1)
+    .get();
+
+  if (usersSnap.empty) {
+    return [];
+  }
+
+  const userRef = usersSnap.docs[0].ref;
+  const snapshot = await userRef
     .collection("devices")
     .where("is_active", "==", true)
     .get();

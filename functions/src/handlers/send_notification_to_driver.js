@@ -32,7 +32,7 @@ exports.sendNotificationToDriver = onRequest(
     }
 
     try {
-        const devices = await getActiveDevicesFromUserDoc(`${fleet_id}`);
+        const devices = await getActiveDevicesFromUserDoc(fleet_id);
     
         if (!devices.length) {
             response.status(404).json({ error: "No active devices found for user" });
@@ -55,7 +55,7 @@ exports.sendNotificationToDriver = onRequest(
 
         response.write(`data: ${JSON.stringify({
             event: "complete",
-            total: devices.size,
+            total: devices.length,
             sent: results.filter((r) => r.status === "sent").length,
             failed: results.filter((r) => r.status === "failed").length,
             skipped: results.filter((r) => r.status === "skipped").length,
