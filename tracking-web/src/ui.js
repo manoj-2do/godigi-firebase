@@ -18,6 +18,18 @@ export function applyArrivedUI() {
   setHeading('Driver arrived', false);
 }
 
+/** @returns {Date|null} */
+export function parsePickupDate(d) {
+  const pickupTime = d.pick_up_time ?? d.scheduledTime;
+  if (pickupTime == null) return null;
+  try {
+    const t = pickupTime.toDate ? pickupTime.toDate() : new Date(pickupTime);
+    return Number.isNaN(t.getTime()) ? null : t;
+  } catch {
+    return null;
+  }
+}
+
 export function setupStaticUI(d) {
   $('address-val').innerText     = d.pick_up ?? d.pickupAddress ?? 'No address provided';
   const name                     = d.driver_name ?? d.driverName ?? 'Driver';
@@ -33,9 +45,8 @@ export function setupStaticUI(d) {
     callBtn.style.pointerEvents = 'none';
   }
 
-  const pickupTime = d.pick_up_time ?? d.scheduledTime;
-  if (pickupTime) {
-    const t = pickupTime.toDate ? pickupTime.toDate() : new Date(pickupTime);
+  const t = parsePickupDate(d);
+  if (t) {
     $('pickup-time-val').innerText = t.toLocaleString([], {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
