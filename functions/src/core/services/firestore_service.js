@@ -2,6 +2,7 @@
 const admin = require("firebase-admin");
 const config = require("../config");
 const { FieldValue } = require("firebase-admin/firestore");
+const { buildTrackingLink } = require("../utils/tracking_link");
 
 const createUserInFirestore = async (uid, doc) => {
   await admin.firestore().collection(config.collections.users).doc(uid).set({
@@ -28,15 +29,22 @@ const createTripTrackingInFirestore = async (job_id, data) => {
 
 const createTaskInFirestore = async (task_id, data) => {
   const db = admin.firestore();
-  const ref = db.collection(config.collections.tasks).doc(`${task_id}`);
+  const taskRef = db.collection(config.collections.tasks).doc(`${task_id}`);
+  const linkRef = db.collection(config.collections.trackingLinks).doc(data.link_signature);
   await db.runTransaction(async (transaction) => {
-    const snap = await transaction.get(ref);
+    const snap = await transaction.get(taskRef);
     if (snap.exists) {
       const err = new Error("A task with this task_id already exists");
       err.code = "TASK_ID_ALREADY_EXISTS";
       throw err;
     }
-    transaction.set(ref, data);
+    transaction.set(taskRef, data);
+    transaction.set(linkRef, {
+      task_id: `${task_id}`,
+      link_signature: data.link_signature,
+      tracking_link_expires_at: data.tracking_link_expires_at,
+      url: buildTrackingLink(data.link_signature),
+    });
   });
 };
 

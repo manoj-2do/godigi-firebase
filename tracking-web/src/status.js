@@ -26,3 +26,5 @@ export const TaskStatus = Object.freeze({
   ].includes(v);
   
   export const isLiveTrackingStatus = v => isHeadingToPickup(v);
+
+  export const isPrePickup = v => v === TaskStatus.UNASSIGNED || v === TaskStatus.ASSIGNED;

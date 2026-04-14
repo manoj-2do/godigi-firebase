@@ -13,5 +13,6 @@ module.exports = {
     suppliers: "suppliers",
     tripTracking: "trip_tracking",
     tasks: "tasks",
+    trackingLinks: "tracking_links",
   },
 };

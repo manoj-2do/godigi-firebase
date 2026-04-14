@@ -35,7 +35,7 @@
 
     #map-container { position: relative; height: 55vh; width: 100%; }
     #map { height: 100%; width: 100%; z-index: 1; }
-    #map-container.arrived::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); background: rgba(255,255,255,0.3); z-index: 2; }
+    #map-container.arrived::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 
     #arrived-banner { display: none; position: absolute; top: 20px; left: 20px; right: 20px; background: var(--success); color: white; padding: 16px; border-radius: 12px; font-weight: 600; text-align: center; z-index: 400; animation: slideDown 0.3s ease-out; }
     @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

@@ -1,41 +1,24 @@
 import {
-  collection,
-  getDocs,
-  limit,
+  doc,
+  getDoc,
   onSnapshot,
-  query,
-  Timestamp,
-  where,
 } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
 import { log, logErr }                from './config.js';
-import { isHeadingToPickup, isArrivedOrBeyond, isLiveTrackingStatus } from './status.js';
+import { isHeadingToPickup, isArrivedOrBeyond, isLiveTrackingStatus, isPrePickup } from './status.js';
 import { showPanel, setHeading, applyArrivedUI, setupStaticUI, startCountdown, parsePickupDate } from './ui.js';
-import { initMap, updateDriverMarker }                                                from './map.js';
+import { initMap, updateDriverMarker, zoomToPickup, clearDriverOverlays }               from './map.js';
 
-const POLL_MS = 5 * 60 * 1000;
 const EARLY_WINDOW_MS = 60 * 60 * 1000;
 
 export function createTrackingController(db, { linkSignature }) {
   let unsubscribe    = null;
-  let pollTimer      = null;
   let initialised    = false;
   let countdownTimer = null;
   let readCount      = 0;
-
-  const q = query(
-    collection(db, 'tasks'),
-    where('link_signature', '==', linkSignature),
-    where('tracking_link_expires_at', '>', Timestamp.now()),
-    limit(1),
-  );
-
-  function clearPoll() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  }
+  let taskRef        = null;
 
   function detach(reason) {
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-    clearPoll();
     if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     log(`🔌 Detached | reason: ${reason} | reads: ${readCount}`);
   }
@@ -53,6 +36,11 @@ export function createTrackingController(db, { linkSignature }) {
       return;
     }
 
+    if (isPrePickup(status)) {
+      setHeading('Real-time driver location sharing starts 60 minutes before your scheduled pickup time.', false);
+      return;
+    }
+
     let text = 'Pickup not started';
     const pickupDate = parsePickupDate(d);
     if (pickupDate && Date.now() < pickupDate.getTime() - EARLY_WINDOW_MS) {
@@ -62,36 +50,20 @@ export function createTrackingController(db, { linkSignature }) {
   }
 
   function attachRealtimeListener() {
-    if (unsubscribe) return;
+    if (unsubscribe || !taskRef) return;
     unsubscribe = onSnapshot(
-      q,
+      taskRef,
       snap => {
-        if (snap.empty) {
+        if (!snap.exists()) {
           detach('no-task-for-url');
           showPanel('not-found');
           return;
         }
-        handleTaskDoc(snap.docs[0]);
+        handleTaskDoc(snap);
       },
       err => { logErr('Firestore error', err); handleExpired(); },
     );
-    log(`✅ onSnapshot | link_signature: ${linkSignature}`);
-  }
-
-  function startPolling() {
-    clearPoll();
-    pollTimer = setInterval(() => {
-      getDocs(q)
-        .then(snap => {
-          if (snap.empty) {
-            detach('no-task-for-url');
-            showPanel('not-found');
-            return;
-          }
-          handleTaskDoc(snap.docs[0]);
-        })
-        .catch(err => { logErr('Firestore poll error', err); handleExpired(); });
-    }, POLL_MS);
+    log(`✅ onSnapshot | task: ${taskRef.path}`);
   }
 
   function handleTaskDoc(docSnap) {
@@ -126,30 +98,21 @@ export function createTrackingController(db, { linkSignature }) {
         return;
       }
 
-      const dLat   = isLiveTrackingStatus(status) ? parseFloat(d.last_latitude ?? d.latitude)  : NaN;
-      const dLng   = isLiveTrackingStatus(status) ? parseFloat(d.last_longitude ?? d.longitude) : NaN;
-      const hasLoc = !isNaN(dLat) && !isNaN(dLng);
+      const dLat = isLiveTrackingStatus(status) ? parseFloat(d.last_latitude ?? d.latitude)  : NaN;
+      const dLng = isLiveTrackingStatus(status) ? parseFloat(d.last_longitude ?? d.longitude) : NaN;
 
       applyPickupHeading(d, status);
-
       requestAnimationFrame(() => initMap(dLat, dLng, pLat, pLng));
 
-      if (isLiveTrackingStatus(status)) {
+      if (!isPrePickup(status)) {
         attachRealtimeListener();
-        return;
       }
-
-      startPolling();
       return;
     }
 
     if (isArrivedOrBeyond(status)) { handleArrived(); return; }
 
     if (isLiveTrackingStatus(status)) {
-      if (!unsubscribe) {
-        clearPoll();
-        attachRealtimeListener();
-      }
       const lat = parseFloat(d.last_latitude ?? d.latitude);
       const lng = parseFloat(d.last_longitude ?? d.longitude);
       if (!isNaN(lat) && !isNaN(lng)) {
@@ -159,21 +122,41 @@ export function createTrackingController(db, { linkSignature }) {
       return;
     }
 
+    clearDriverOverlays();
     applyPickupHeading(d, status);
   }
 
+  async function resolveTaskId() {
+    const linkDoc = await getDoc(doc(db, 'tracking_links', linkSignature));
+    if (!linkDoc.exists()) return null;
+
+    const data = linkDoc.data();
+    if (data.tracking_link_expires_at?.toDate() < new Date()) return null;
+
+    return data.task_id;
+  }
+
   return {
-    start() {
-      log(`✅ Initial fetch | link_signature: ${linkSignature}`);
-      getDocs(q)
-        .then(snap => {
-          if (snap.empty) {
-            showPanel('not-found');
-            return;
-          }
-          handleTaskDoc(snap.docs[0]);
-        })
-        .catch(err => { logErr('Firestore error', err); handleExpired(); });
+    async start() {
+      log(`✅ Resolving task via tracking_links/${linkSignature}`);
+      try {
+        const taskId = await resolveTaskId();
+        if (!taskId) {
+          showPanel('not-found');
+          return;
+        }
+
+        taskRef = doc(db, 'tasks', taskId);
+        const snap = await getDoc(taskRef);
+        if (!snap.exists()) {
+          showPanel('not-found');
+          return;
+        }
+        handleTaskDoc(snap);
+      } catch (err) {
+        logErr('Firestore error', err);
+        handleExpired();
+      }
     },
   };
 }

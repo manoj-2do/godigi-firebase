@@ -29,7 +29,7 @@ function addZoomControl() {
   const ZoomCtrl = L.Control.extend({
     onAdd() {
       const wrap = L.DomUtil.create('div');
-      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin:10px;';
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin:10px;margin-bottom:40px;';
       const style = 'width:36px;height:36px;background:white;border:none;border-radius:8px;font-size:20px;font-weight:500;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.2);color:#1E293B;line-height:1;';
       const btnIn  = L.DomUtil.create('button', '', wrap); btnIn.innerHTML  = '+'; btnIn.style.cssText = style;
       const btnOut = L.DomUtil.create('button', '', wrap); btnOut.innerHTML = '−'; btnOut.style.cssText = style;
@@ -40,7 +40,7 @@ function addZoomControl() {
       return wrap;
     },
   });
-  new ZoomCtrl({ position: 'topright' }).addTo(map);
+  new ZoomCtrl({ position: 'bottomright' }).addTo(map);
 }
 
 async function drawRoute(dLat, dLng) {
@@ -55,10 +55,10 @@ async function drawRoute(dLat, dLng) {
   } catch (e) { logErr('OSRM error', e); }
 }
 
-function fitToMarkers(dLat, dLng, animate = false) {
+function fitToMarkers(dLat, dLng, animate = true) {
   map.fitBounds(
     L.latLngBounds([[dLat, dLng], [pickupLat, pickupLng]]),
-    { padding: [80, 80], maxZoom: 17, animate },
+    { padding: [80, 80], maxZoom: 18, animate },
   );
 }
 
@@ -70,14 +70,14 @@ export function initMap(driverLat, driverLng, pLat, pLng) {
     zoomControl:        false,
     attributionControl: false,
     minZoom:            3,
-    maxZoom:            18,
+    maxZoom:            20,
     scrollWheelZoom:    false,
     doubleClickZoom:    false,
     touchZoom:          true,
     dragging:           true,
   });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
   addZoomControl();
 
   pickupMarker = L.marker([pLat, pLng], { icon: makePickupIcon() }).addTo(map);
@@ -100,11 +100,25 @@ export function initMap(driverLat, driverLng, pLat, pLng) {
   }, 200);
 }
 
+export function zoomToPickup() {
+  if (!map || isNaN(pickupLat) || isNaN(pickupLng)) return;
+  map.flyTo([pickupLat, pickupLng], 20, { duration: 0.8 });
+}
+
+export function clearDriverOverlays() {
+  if (driverMarker) { map.removeLayer(driverMarker); driverMarker = null; }
+  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  if (map && !isNaN(pickupLat) && !isNaN(pickupLng)) {
+    map.flyTo([pickupLat, pickupLng], 16, { duration: 0.5 });
+  }
+}
+
 export function updateDriverMarker(lat, lng) {
   if (!driverMarker) {
     driverMarker = L.marker([lat, lng], { icon: makeDriverIcon(), zIndexOffset: 1000 }).addTo(map);
   } else {
     driverMarker.setLatLng([lat, lng]);
   }
+  fitToMarkers(lat, lng);
   drawRoute(lat, lng);
 }

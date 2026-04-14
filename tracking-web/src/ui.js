@@ -15,7 +15,7 @@ export function setHeading(text, showBadge) {
 export function applyArrivedUI() {
   $('map-container').classList.add('arrived');
   $('arrived-banner').style.display = 'block';
-  setHeading('Driver arrived', false);
+  setHeading('Driver is at the Pickup point', false);
 }
 
 /** @returns {Date|null} */
