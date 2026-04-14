@@ -18,6 +18,9 @@ export const TaskStatus = Object.freeze({
   }
   
   export const isHeadingToPickup = v => v === TaskStatus.HEADED_FOR_PICKUP;
+  export const isReachedPickup  = v => v === TaskStatus.REACHED_PICKUP;
+  export const isHeadedForDrop  = v => v === TaskStatus.HEADED_FOR_DROP;
+  export const isCompleted      = v => v === TaskStatus.COMPLETED;
   
   export const isArrivedOrBeyond = v => [
     TaskStatus.REACHED_PICKUP,
@@ -25,6 +28,7 @@ export const TaskStatus = Object.freeze({
     TaskStatus.COMPLETED,
   ].includes(v);
   
-  export const isLiveTrackingStatus = v => isHeadingToPickup(v);
+  export const isLiveTrackingStatus = v =>
+    v === TaskStatus.HEADED_FOR_PICKUP || v === TaskStatus.REACHED_PICKUP || v === TaskStatus.HEADED_FOR_DROP;
 
-  export const isPrePickup = v => v === TaskStatus.UNASSIGNED || v === TaskStatus.ASSIGNED;
+  export const isPrePickup = v => v === TaskStatus.UNASSIGNED || v === TaskStatus.ASSIGNED || v === TaskStatus.ACCEPTED;

@@ -4,18 +4,17 @@ import {
   onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
 import { log, logErr }                from './config.js';
-import { isHeadingToPickup, isArrivedOrBeyond, isLiveTrackingStatus, isPrePickup } from './status.js';
-import { showPanel, setHeading, applyArrivedUI, setupStaticUI, startCountdown, parsePickupDate } from './ui.js';
-import { initMap, updateDriverMarker, zoomToPickup, clearDriverOverlays }               from './map.js';
+import { isHeadingToPickup, isReachedPickup, isHeadedForDrop, isCompleted, isLiveTrackingStatus, isPrePickup } from './status.js';
+import { showPanel, setHeading, applyArrivedUI, applyTripCompletedUI, applyGuestPickedUpUI, setupStaticUI, startCountdown, parsePickupDate, showEarlyModal } from './ui.js';
+import { initMap, updateDriverMarker, zoomToPickup, clearDriverOverlays, clearPickupAndRoute, switchToDropMode, showTripCompleted, hasDropLocation } from './map.js';
 
-const EARLY_WINDOW_MS = 60 * 60 * 1000;
-
-export function createTrackingController(db, { linkSignature }) {
+export function createTrackingController(db, { linkSignature, earlyWindowMinutes = 60 }) {
   let unsubscribe    = null;
   let initialised    = false;
   let countdownTimer = null;
   let readCount      = 0;
   let taskRef        = null;
+  let switchedToDrop = false;
 
   function detach(reason) {
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
@@ -24,29 +23,61 @@ export function createTrackingController(db, { linkSignature }) {
   }
 
   function handleExpired() { detach('expired'); showPanel('expired'); }
-  function handleArrived() { detach('arrived'); applyArrivedUI(); }
+
+  function handleArrived() {
+    if (hasDropLocation()) {
+      applyArrivedUI();
+      return;
+    }
+    detach('arrived');
+    applyArrivedUI();
+  }
+
+  function handleCompleted() {
+    detach('completed');
+    showTripCompleted();
+    applyTripCompletedUI();
+  }
+
+  function handleHeadedForDrop(d) {
+    if (!hasDropLocation()) {
+      detach('headed-for-drop-no-drop-coords');
+      clearPickupAndRoute();
+      applyArrivedUI();
+      return;
+    }
+
+    if (!switchedToDrop) {
+      switchToDropMode();
+      switchedToDrop = true;
+    }
+    applyGuestPickedUpUI();
+
+    const lat = parseFloat(d.last_latitude ?? d.latitude);
+    const lng = parseFloat(d.last_longitude ?? d.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      updateDriverMarker(lat, lng);
+    }
+  }
+
+  const EARLY_WINDOW_MS = earlyWindowMinutes * 60 * 1000;
 
   function applyPickupHeading(d, status) {
-    const dLat = isLiveTrackingStatus(status) ? parseFloat(d.last_latitude ?? d.latitude)  : NaN;
-    const dLng = isLiveTrackingStatus(status) ? parseFloat(d.last_longitude ?? d.longitude) : NaN;
-    const hasLoc = !isNaN(dLat) && !isNaN(dLng);
-
-    if (isHeadingToPickup(status) && hasLoc) {
-      setHeading('Your driver is on the way', true);
-      return;
+    if (isHeadingToPickup(status)) {
+      const dLat = parseFloat(d.last_latitude ?? d.latitude);
+      const dLng = parseFloat(d.last_longitude ?? d.longitude);
+      if (!isNaN(dLat) && !isNaN(dLng)) {
+        setHeading('Your driver is on the way', true);
+        return;
+      }
     }
 
-    if (isPrePickup(status)) {
-      setHeading('Real-time driver location sharing starts 60 minutes before your scheduled pickup time.', false);
-      return;
-    }
+    setHeading('Pickup has not started yet', false);
 
-    let text = 'Pickup not started';
     const pickupDate = parsePickupDate(d);
     if (pickupDate && Date.now() < pickupDate.getTime() - EARLY_WINDOW_MS) {
-      text = 'Real-time driver location sharing starts 60 minutes before your scheduled pickup time.';
+      showEarlyModal();
     }
-    setHeading(text, false);
   }
 
   function attachRealtimeListener() {
@@ -86,31 +117,87 @@ export function createTrackingController(db, { linkSignature }) {
       const pLng = parseFloat(d.pickup_lng ?? d.pickupLng);
       if (isNaN(pLat) || isNaN(pLng)) { handleExpired(); return; }
 
+      const dDropLat = parseFloat(d.drop_lat ?? d.dropLat);
+      const dDropLng = parseFloat(d.drop_lng ?? d.dropLng);
+
       setupStaticUI(d);
       countdownTimer = startCountdown(expiryField);
       initialised    = true;
       showPanel('active');
 
-      if (isArrivedOrBeyond(status)) {
+      if (isCompleted(status)) {
         const dLat = parseFloat(d.last_latitude ?? d.latitude);
         const dLng = parseFloat(d.last_longitude ?? d.longitude);
-        requestAnimationFrame(() => { initMap(dLat, dLng, pLat, pLng); handleArrived(); });
+        requestAnimationFrame(() => { initMap(dLat, dLng, pLat, pLng, dDropLat, dDropLng); handleCompleted(); });
         return;
       }
 
-      const dLat = isLiveTrackingStatus(status) ? parseFloat(d.last_latitude ?? d.latitude)  : NaN;
-      const dLng = isLiveTrackingStatus(status) ? parseFloat(d.last_longitude ?? d.longitude) : NaN;
+      const trackingActive = !!d.is_tracking_active;
+
+      if (isHeadedForDrop(status)) {
+        const dLat = parseFloat(d.last_latitude ?? d.latitude);
+        const dLng = parseFloat(d.last_longitude ?? d.longitude);
+        const hasDrop = !isNaN(dDropLat) && !isNaN(dDropLng);
+        requestAnimationFrame(() => {
+          initMap(dLat, dLng, pLat, pLng, dDropLat, dDropLng);
+          if (hasDrop) {
+            handleHeadedForDrop(d);
+          } else {
+            clearPickupAndRoute();
+            applyArrivedUI();
+          }
+        });
+        if (hasDrop && trackingActive) attachRealtimeListener();
+        return;
+      }
+
+      if (isReachedPickup(status)) {
+        const dLat = parseFloat(d.last_latitude ?? d.latitude);
+        const dLng = parseFloat(d.last_longitude ?? d.longitude);
+        const hasDrop = !isNaN(dDropLat) && !isNaN(dDropLng);
+        requestAnimationFrame(() => { initMap(dLat, dLng, pLat, pLng, dDropLat, dDropLng); handleArrived(); });
+        if (hasDrop && trackingActive) {
+          attachRealtimeListener();
+        }
+        return;
+      }
+
+      if (isHeadingToPickup(status)) {
+        const dLat = parseFloat(d.last_latitude ?? d.latitude);
+        const dLng = parseFloat(d.last_longitude ?? d.longitude);
+        applyPickupHeading(d, status);
+        requestAnimationFrame(() => initMap(dLat, dLng, pLat, pLng, dDropLat, dDropLng));
+        if (trackingActive) attachRealtimeListener();
+        return;
+      }
 
       applyPickupHeading(d, status);
-      requestAnimationFrame(() => initMap(dLat, dLng, pLat, pLng));
+      requestAnimationFrame(() => initMap(NaN, NaN, pLat, pLng, dDropLat, dDropLng));
 
-      if (!isPrePickup(status)) {
+      const pickupDate = parsePickupDate(d);
+      const withinWindow = pickupDate && Date.now() >= pickupDate.getTime() - EARLY_WINDOW_MS;
+      if (withinWindow && trackingActive) {
         attachRealtimeListener();
       }
       return;
     }
 
-    if (isArrivedOrBeyond(status)) { handleArrived(); return; }
+    if (isCompleted(status)) { handleCompleted(); return; }
+
+    const pickupDate = parsePickupDate(d);
+    const withinWindow = pickupDate && Date.now() >= pickupDate.getTime() - EARLY_WINDOW_MS;
+
+    if (!withinWindow || !d.is_tracking_active) {
+      detach(withinWindow ? 'tracking-inactive' : 'before-tracking-window');
+      clearDriverOverlays();
+      setHeading('Pickup has not started yet', false);
+      if (!withinWindow) showEarlyModal();
+      return;
+    }
+
+    if (isHeadedForDrop(status)) { handleHeadedForDrop(d); return; }
+
+    if (isReachedPickup(status)) { handleArrived(); return; }
 
     if (isLiveTrackingStatus(status)) {
       const lat = parseFloat(d.last_latitude ?? d.latitude);

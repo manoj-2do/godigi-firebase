@@ -34,9 +34,11 @@ const createTaskInFirestore = async (task_id, data) => {
   await db.runTransaction(async (transaction) => {
     const snap = await transaction.get(taskRef);
     if (snap.exists) {
-      const err = new Error("A task with this task_id already exists");
-      err.code = "TASK_ID_ALREADY_EXISTS";
-      throw err;
+      const oldSig = snap.data().link_signature;
+      if (oldSig != null && String(oldSig) !== String(data.link_signature)) {
+        const oldLinkRef = db.collection(config.collections.trackingLinks).doc(String(oldSig));
+        transaction.delete(oldLinkRef);
+      }
     }
     transaction.set(taskRef, data);
     transaction.set(linkRef, {

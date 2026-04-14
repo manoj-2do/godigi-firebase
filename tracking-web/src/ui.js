@@ -15,7 +15,22 @@ export function setHeading(text, showBadge) {
 export function applyArrivedUI() {
   $('map-container').classList.add('arrived');
   $('arrived-banner').style.display = 'block';
+  $('completed-banner').style.display = 'none';
   setHeading('Driver is at the Pickup point', false);
+}
+
+export function applyTripCompletedUI() {
+  $('map-container').classList.add('arrived');
+  $('arrived-banner').style.display = 'none';
+  $('completed-banner').style.display = 'block';
+  setHeading('Trip completed', false);
+}
+
+export function applyGuestPickedUpUI() {
+  $('map-container').classList.remove('arrived');
+  $('arrived-banner').style.display = 'none';
+  $('completed-banner').style.display = 'none';
+  setHeading('Heading to drop location', true);
 }
 
 /** @returns {Date|null} */
@@ -51,6 +66,18 @@ export function setupStaticUI(d) {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   }
+}
+
+export function setEarlyModalMessage(minutes) {
+  const p = document.querySelector('#early-modal .modal-card p');
+  if (p) p.textContent = `Real-time driver location sharing will be enabled ${minutes} minutes before your scheduled pickup time.`;
+}
+
+export function showEarlyModal() {
+  const overlay = $('early-modal');
+  overlay.classList.add('visible');
+  $('early-modal-close').onclick = () => overlay.classList.remove('visible');
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove('visible'); };
 }
 
 export function startCountdown(expiryField) {

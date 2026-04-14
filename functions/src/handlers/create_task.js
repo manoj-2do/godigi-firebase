@@ -36,10 +36,6 @@ exports.createTaskService = onRequest(
         success: true,
       });
     } catch (e) {
-      if (e.code === "TASK_ID_ALREADY_EXISTS") {
-        response.status(409).json({ error: e.message });
-        return;
-      }
       response.status(500).json({ error: e.message });
     }
   }

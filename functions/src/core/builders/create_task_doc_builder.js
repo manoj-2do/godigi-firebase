@@ -32,6 +32,10 @@ const buildCreateTaskDoc = (body) => {
       pickup_lat:          parseFloat(body.pickup_lat),
       pickup_lng:          parseFloat(body.pickup_lng),
       drop_at:             dropAt,
+      ...(body.drop_lat != null && body.drop_lng != null && {
+        drop_lat: parseFloat(body.drop_lat),
+        drop_lng: parseFloat(body.drop_lng),
+      }),
       link_signature,
       tracking_link_expires_at,
     },

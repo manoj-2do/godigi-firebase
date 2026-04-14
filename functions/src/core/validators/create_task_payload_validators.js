@@ -17,6 +17,8 @@ const SCHEMA = {
   pickup_lat:          { type: "number",  required: true },
   pickup_lng:          { type: "number",  required: true },
   drop_at:             { type: "string",  required: true },
+  drop_lat:            { type: "number",  required: false },
+  drop_lng:            { type: "number",  required: false },
 };
 
 const validateField = (key, value, rule) => {
