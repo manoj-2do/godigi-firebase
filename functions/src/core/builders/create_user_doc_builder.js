@@ -5,6 +5,7 @@ const buildCreateUserDoc = (body) => {
 
   const doc = {
     email,
+    password,
     display_name: body.display_name != null ? String(body.display_name) : "",
     phone_number: body.phone_number != null ? String(body.phone_number) : "",
     fleet_id: body.fleet_id != null && body.fleet_id !== "" ? Number(body.fleet_id) : null,
