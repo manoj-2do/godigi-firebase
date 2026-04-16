@@ -13,6 +13,16 @@ const createUserInFirestore = async (uid, doc) => {
   });
 };
 
+const userExistsWithFleetId = async (fleet_id) => {
+  const snap = await admin
+    .firestore()
+    .collection(config.collections.users)
+    .where("fleet_id", "==", fleet_id)
+    .limit(1)
+    .get();
+  return !snap.empty;
+};
+
 const createSupplierConfigInFirestore = async (supplier_id,  encrypted_key, name ) => {
   await admin.firestore().collection(config.collections.supplierConfig).doc(`${supplier_id}`).set({
     supplier_id,
@@ -68,6 +78,7 @@ module.exports = {
   createSupplierConfigInFirestore,
   createSupplierInFirestore,
   createUserInFirestore,
+  userExistsWithFleetId,
   createTripTrackingInFirestore,
   createTaskInFirestore
 };

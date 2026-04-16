@@ -4,7 +4,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { validateSecret } = require("../core/middleware/validate_secret");
 const { validateCreateTaskBody } = require("../core/validators/create_task_payload_validators");
 const { buildCreateTaskDoc } = require("../core/builders/create_task_doc_builder");
-const { createTaskInFirestore } = require("../core/services/firestore_service");
+const { createTaskInFirestore, userExistsWithFleetId } = require("../core/services/firestore_service");
 const { buildTrackingLink } = require("../core/utils/tracking_link");
 
 exports.createTaskService = onRequest(
@@ -21,6 +21,18 @@ exports.createTaskService = onRequest(
 
     if (errors.length > 0) {
       response.status(400).json({ errors });
+      return;
+    }
+
+    const fleet_id = Number(body.fleet_id);
+    try {
+      const fleetUserExists = await userExistsWithFleetId(fleet_id);
+      if (!fleetUserExists) {
+        response.status(404).json({ error: "No user found for this fleet_id" });
+        return;
+      }
+    } catch (e) {
+      response.status(500).json({ error: e.message });
       return;
     }
 
