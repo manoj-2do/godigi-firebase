@@ -27,6 +27,7 @@ const buildCreateTaskDoc = (body) => {
       guest_name:          String(body.guest_name),
       guest_phone_number:  String(body.guest_phone_number),
       is_tracking_active:  false,
+      tracking_device_id:  null,
       pick_up:             pickUp,
       pick_up_time:        String(body.pick_up_time),
       pickup_lat:          parseFloat(body.pickup_lat),

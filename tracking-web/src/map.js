@@ -155,18 +155,12 @@ export function switchToDropMode() {
 }
 
 export function showTripCompleted() {
-  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-  if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
-
+  if (!map) return;
   const hasDrop = !isNaN(dropLat) && !isNaN(dropLng);
-
-  if (hasDrop && driverMarker) { map.removeLayer(driverMarker); driverMarker = null; }
-
   const target = hasDrop
     ? [dropLat, dropLng]
     : (driverMarker ? driverMarker.getLatLng() : [pickupLat, pickupLng]);
-
-  if (map) map.flyTo(target, 16, { duration: 0.5 });
+  map.flyTo(target, 16, { duration: 0.5 });
 }
 
 export function updateDriverMarker(lat, lng) {

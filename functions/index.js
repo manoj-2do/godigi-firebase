@@ -12,9 +12,9 @@ const { getTrackingLink } = require("./src/handlers/get_tracking_link.js");
 admin.initializeApp();
 
 exports.createUserService = createUserService;
-exports.createSupplierConfigService = createSupplierConfigService; //INACTIVE
-exports.createTripService = createTripService; // INACTIVE
+// exports.createSupplierConfigService = createSupplierConfigService; //INACTIVE
+// exports.createTripService = createTripService; // INACTIVE
 exports.sendNotificationToDriver = sendNotificationToDriver;
 exports.createTaskService = createTaskService;
 exports.createSupplier = createSupplier;
-exports.getTrackingLink = getTrackingLink;
+// exports.getTrackingLink = getTrackingLink;
