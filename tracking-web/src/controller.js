@@ -4,7 +4,7 @@ import {
   onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
 import { log, logErr }                from './config.js';
-import { isHeadingToPickup, isReachedPickup, isHeadedForDrop, isCompleted, isLiveTrackingStatus, isPrePickup } from './status.js';
+import { isHeadingToPickup, isReachedPickup, isHeadedForDrop, isCompleted, isLiveTrackingStatus } from './status.js';
 import { showPanel, setHeading, applyArrivedUI, applyTripCompletedUI, applyGuestPickedUpUI, setupStaticUI, startCountdown, parsePickupDate, showEarlyModal } from './ui.js';
 import { initMap, updateDriverMarker, zoomToPickup, clearDriverOverlays, clearPickupAndRoute, switchToDropMode, showTripCompleted, hasDropLocation } from './map.js';
 
@@ -132,8 +132,6 @@ export function createTrackingController(db, { linkSignature, earlyWindowMinutes
         return;
       }
 
-      const trackingActive = !!d.is_tracking_active;
-
       if (isHeadedForDrop(status)) {
         const dLat = parseFloat(d.last_latitude ?? d.latitude);
         const dLng = parseFloat(d.last_longitude ?? d.longitude);
@@ -147,7 +145,7 @@ export function createTrackingController(db, { linkSignature, earlyWindowMinutes
             applyArrivedUI();
           }
         });
-        if (hasDrop && trackingActive) attachRealtimeListener();
+        if (hasDrop) attachRealtimeListener();
         return;
       }
 
@@ -156,7 +154,7 @@ export function createTrackingController(db, { linkSignature, earlyWindowMinutes
         const dLng = parseFloat(d.last_longitude ?? d.longitude);
         const hasDrop = !isNaN(dDropLat) && !isNaN(dDropLng);
         requestAnimationFrame(() => { initMap(dLat, dLng, pLat, pLng, dDropLat, dDropLng); handleArrived(); });
-        if (hasDrop && trackingActive) {
+        if (hasDrop) {
           attachRealtimeListener();
         }
         return;
@@ -167,7 +165,7 @@ export function createTrackingController(db, { linkSignature, earlyWindowMinutes
         const dLng = parseFloat(d.last_longitude ?? d.longitude);
         applyPickupHeading(d, status);
         requestAnimationFrame(() => initMap(dLat, dLng, pLat, pLng, dDropLat, dDropLng));
-        if (trackingActive) attachRealtimeListener();
+        attachRealtimeListener();
         return;
       }
 
@@ -176,7 +174,7 @@ export function createTrackingController(db, { linkSignature, earlyWindowMinutes
 
       const pickupDate = parsePickupDate(d);
       const withinWindow = pickupDate && Date.now() >= pickupDate.getTime() - EARLY_WINDOW_MS;
-      if (withinWindow && trackingActive) {
+      if (withinWindow) {
         attachRealtimeListener();
       }
       return;
@@ -187,11 +185,11 @@ export function createTrackingController(db, { linkSignature, earlyWindowMinutes
     const pickupDate = parsePickupDate(d);
     const withinWindow = pickupDate && Date.now() >= pickupDate.getTime() - EARLY_WINDOW_MS;
 
-    if (!withinWindow || !d.is_tracking_active) {
-      detach(withinWindow ? 'tracking-inactive' : 'before-tracking-window');
+    if (!withinWindow) {
+      detach('before-tracking-window');
       clearDriverOverlays();
       setHeading('Pickup has not started yet', false);
-      if (!withinWindow) showEarlyModal();
+      showEarlyModal();
       return;
     }
 

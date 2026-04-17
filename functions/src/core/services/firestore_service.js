@@ -13,15 +13,21 @@ const createUserInFirestore = async (uid, doc) => {
   });
 };
 
-const userExistsWithFleetId = async (fleet_id) => {
+const getUserByFleetId = async (fleet_id) => {
   const snap = await admin
     .firestore()
     .collection(config.collections.users)
     .where("fleet_id", "==", fleet_id)
     .limit(1)
     .get();
-  return !snap.empty;
+  if (snap.empty) return null;
+  const raw = snap.docs[0].data().vehicle_number;
+  const vehicle_number =
+    raw != null && String(raw).trim() !== "" ? String(raw).trim() : null;
+  return { vehicle_number };
 };
+
+const userExistsWithFleetId = async (fleet_id) => (await getUserByFleetId(fleet_id)) != null;
 
 const createSupplierConfigInFirestore = async (supplier_id,  encrypted_key, name ) => {
   await admin.firestore().collection(config.collections.supplierConfig).doc(`${supplier_id}`).set({
@@ -78,6 +84,7 @@ module.exports = {
   createSupplierConfigInFirestore,
   createSupplierInFirestore,
   createUserInFirestore,
+  getUserByFleetId,
   userExistsWithFleetId,
   createTripTrackingInFirestore,
   createTaskInFirestore

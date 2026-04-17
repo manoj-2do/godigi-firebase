@@ -64,6 +64,9 @@
     .avatar { width: 44px; height: 44px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; flex-shrink: 0; }
     .driver-info h3 { font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 2px; }
     .driver-info p { font-size: 16px; font-weight: 700; }
+    .driver-vehicle-wrap { margin-top: 6px; }
+    .driver-vehicle-wrap .driver-vehicle-label { font-size: 11px; color: var(--muted); font-weight: 500; display: block; margin-bottom: 2px; }
+    .driver-vehicle-wrap .driver-vehicle-val { font-size: 14px; font-weight: 600; color: var(--text); }
     .call-btn-icon { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; background: #DCFCE7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
     .countdown { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
@@ -134,6 +137,10 @@
         <div class="driver-info">
           <h3>Driver</h3>
           <p id="driver-name-val">Loading...</p>
+          <div id="driver-vehicle-wrap" class="driver-vehicle-wrap" hidden>
+            <span class="driver-vehicle-label">Vehicle</span>
+            <span id="driver-vehicle-val" class="driver-vehicle-val"></span>
+          </div>
         </div>
         <div class="call-btn-icon">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#16A34A;width:18px;height:18px;">

@@ -4,7 +4,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { validateSecret } = require("../core/middleware/validate_secret");
 const { validateCreateTaskBody } = require("../core/validators/create_task_payload_validators");
 const { buildCreateTaskDoc } = require("../core/builders/create_task_doc_builder");
-const { createTaskInFirestore, userExistsWithFleetId } = require("../core/services/firestore_service");
+const { createTaskInFirestore, getUserByFleetId } = require("../core/services/firestore_service");
 const { buildTrackingLink } = require("../core/utils/tracking_link");
 
 exports.createTaskService = onRequest(
@@ -25,9 +25,10 @@ exports.createTaskService = onRequest(
     }
 
     const fleet_id = Number(body.fleet_id);
+    let fleetUser;
     try {
-      const fleetUserExists = await userExistsWithFleetId(fleet_id);
-      if (!fleetUserExists) {
+      fleetUser = await getUserByFleetId(fleet_id);
+      if (!fleetUser) {
         response.status(404).json({ error: "No user found for this fleet_id" });
         return;
       }
@@ -37,6 +38,9 @@ exports.createTaskService = onRequest(
     }
 
     const { doc } = buildCreateTaskDoc(body);
+    if (fleetUser.vehicle_number != null) {
+      doc.vehicle_number = fleetUser.vehicle_number;
+    }
 
     try {
       await createTaskInFirestore(doc.task_id, doc);

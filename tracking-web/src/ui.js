@@ -51,6 +51,18 @@ export function setupStaticUI(d) {
   $('driver-name-val').innerText = name;
   $('avatar-val').innerText      = name.charAt(0).toUpperCase();
 
+  const vehicleRaw = d.vehicle_number ?? d.vehicleNumber ?? '';
+  const vehicle    = typeof vehicleRaw === 'string' ? vehicleRaw.trim() : String(vehicleRaw ?? '').trim();
+  const vehWrap    = $('driver-vehicle-wrap');
+  const vehVal     = $('driver-vehicle-val');
+  if (vehicle) {
+    vehVal.textContent = vehicle;
+    vehWrap.hidden     = false;
+  } else {
+    vehVal.textContent = '';
+    vehWrap.hidden     = true;
+  }
+
   const phone   = d.driver_phone_number ?? d.driverPhoneNumber ?? '';
   const callBtn = $('call-btn');
   if (phone) {
