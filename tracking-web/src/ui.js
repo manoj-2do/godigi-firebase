@@ -13,6 +13,7 @@ export function setHeading(text, showBadge) {
 }
 
 export function applyArrivedUI() {
+  clearRouteEstimates();
   $('map-container').classList.add('arrived');
   $('arrived-banner').style.display = 'block';
   $('completed-banner').style.display = 'none';
@@ -20,6 +21,7 @@ export function applyArrivedUI() {
 }
 
 export function applyTripCompletedUI() {
+  clearRouteEstimates();
   $('map-container').classList.add('arrived');
   $('arrived-banner').style.display = 'none';
   $('completed-banner').style.display = 'block';
@@ -27,6 +29,7 @@ export function applyTripCompletedUI() {
 }
 
 export function applyGuestPickedUpUI() {
+  clearRouteEstimates();
   $('map-container').classList.remove('arrived');
   $('arrived-banner').style.display = 'none';
   $('completed-banner').style.display = 'none';
@@ -43,6 +46,47 @@ export function parsePickupDate(d) {
   } catch {
     return null;
   }
+}
+
+function formatRouteDistance(meters) {
+  if (meters == null || Number.isNaN(meters)) return '—';
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+function formatRouteDuration(seconds) {
+  if (seconds == null || Number.isNaN(seconds)) return '—';
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  if (minutes < 1) return '< 1 min';
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+/**
+ * @param {{ distanceMeters: number, durationSeconds: number, phase: 'pickup'|'drop' } | null} payload
+ */
+export function setRouteEstimates(payload) {
+  const wrap = $('route-estimates-wrap');
+  if (!wrap) return;
+  if (!payload) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const distLabel = $('route-distance-label');
+  if (distLabel) {
+    distLabel.textContent = payload.phase === 'drop'
+      ? 'Est. distance to drop'
+      : 'Est. distance to pickup';
+  }
+  $('route-distance-val').textContent   = formatRouteDistance(payload.distanceMeters);
+  $('route-duration-val').textContent = formatRouteDuration(payload.durationSeconds);
+}
+
+export function clearRouteEstimates() {
+  setRouteEstimates(null);
 }
 
 export function setupStaticUI(d) {

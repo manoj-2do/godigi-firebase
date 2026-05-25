@@ -1,17 +1,102 @@
 import { logErr } from './config.js';
 
+/** Display scale (viewBox stays 80×104 so artwork scales uniformly). */
+const PILL_VISUAL_SCALE = 0.78;
+const PILL_W = Math.round(80 * PILL_VISUAL_SCALE);
+const PILL_H = Math.round(104 * PILL_VISUAL_SCALE);
+/** Bottom of avatar circle in viewBox (40,68)+r22 → y=90; scaled for map anchor. */
+const PILL_MARKER_SIZE   = [PILL_W, PILL_H];
+const PILL_MARKER_ANCHOR = [
+  Math.round(40 * PILL_VISUAL_SCALE),
+  Math.round(90 * PILL_VISUAL_SCALE),
+];
+const PILL_POPUP_ANCHOR_Y = -Math.round(82 * PILL_VISUAL_SCALE);
+
+/** Unique filter ids per marker so two instances on one page both render shadows. */
+const SVG_TRAVELER_PILL = `<svg xmlns="http://www.w3.org/2000/svg" width="${PILL_W}" height="${PILL_H}" viewBox="0 0 80 104" fill="none">
+<defs>
+<filter id="pm-tr-f1" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.18"/></filter>
+<filter id="pm-tr-f2" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity="0.22"/></filter>
+</defs>
+<g filter="url(#pm-tr-f1)">
+<rect x="22" y="6" width="36" height="28" rx="14" fill="#1B9D7A"/>
+<path d="M36 34 L40 40 L44 34 Z" fill="#1B9D7A"/>
+<text x="40" y="24" font-family="Inter,system-ui,-apple-system,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.1">You</text>
+</g>
+<g filter="url(#pm-tr-f2)" transform="translate(40 68)">
+<circle r="22" fill="#FFFFFF"/><circle r="19" fill="#1B9D7A"/>
+<g stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<circle cx="0" cy="-3.5" r="4"/><path d="M-7.5 8.5 C -7.5 4 -4 1 0 1 C 4 1 7.5 4 7.5 8.5"/>
+</g></g></svg>`;
+
+const SVG_DRIVER_PILL = `<svg xmlns="http://www.w3.org/2000/svg" width="${PILL_W}" height="${PILL_H}" viewBox="0 0 80 104" fill="none">
+<defs>
+<filter id="pm-dr-f1" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.18"/></filter>
+<filter id="pm-dr-f2" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity="0.22"/></filter>
+</defs>
+<g filter="url(#pm-dr-f1)">
+<rect x="15" y="6" width="50" height="28" rx="14" fill="#5A5BD6"/>
+<path d="M36 34 L40 40 L44 34 Z" fill="#5A5BD6"/>
+<text x="40" y="24" font-family="Inter,system-ui,-apple-system,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.1">Driver</text>
+</g>
+<g filter="url(#pm-dr-f2)" transform="translate(40 68)">
+<circle r="22" fill="#FFFFFF"/><circle r="19" fill="#5A5BD6"/>
+<g stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<circle r="9"/><circle r="2.2" fill="#FFFFFF"/>
+<line x1="0" y1="-2.2" x2="0" y2="-8"/><line x1="-2.2" y1="0.6" x2="-6.8" y2="3.8"/><line x1="2.2" y1="0.6" x2="6.8" y2="3.8"/>
+</g></g></svg>`;
+
 let map, driverMarker, pickupMarker, dropMarker, routeLine;
 let pickupLat, pickupLng, dropLat, dropLng;
 let currentTarget = 'pickup'; // 'pickup' | 'drop'
 
+/** @type {((p: { distanceMeters: number, durationSeconds: number, phase: 'pickup'|'drop' } | null) => void) | null} */
+let routeMetricsListener = null;
+
+const ROUTE_FETCH_MIN_MS = 20_000;
+const ROUTE_MIN_MOVE_M = 200;
+
+let lastRouteFetchAt = 0;
+let lastRouteDriverLat = NaN;
+let lastRouteDriverLng = NaN;
+/** @type {'pickup'|'drop'|null} */
+let lastRouteTargetPhase = null;
+
+export function setRouteMetricsListener(fn) {
+  routeMetricsListener = fn;
+}
+
+function resetRouteFetchState() {
+  lastRouteFetchAt       = 0;
+  lastRouteDriverLat     = NaN;
+  lastRouteDriverLng     = NaN;
+  lastRouteTargetPhase   = null;
+}
+
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const p = Math.PI / 180;
+  const a = 0.5 - Math.cos((lat2 - lat1) * p) / 2
+    + Math.cos(lat1 * p) * Math.cos(lat2 * p) * (1 - Math.cos((lng2 - lng1) * p)) / 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function shouldSkipOsrmFetch(dLat, dLng) {
+  if (currentTarget !== lastRouteTargetPhase) return false;
+  const elapsed = Date.now() - lastRouteFetchAt;
+  if (elapsed >= ROUTE_FETCH_MIN_MS) return false;
+  if (Number.isNaN(lastRouteDriverLat)) return false;
+  const moved = haversineMeters(dLat, dLng, lastRouteDriverLat, lastRouteDriverLng);
+  return moved < ROUTE_MIN_MOVE_M;
+}
+
 function makePickupIcon() {
   return L.divIcon({
-    className: '',
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-      <div style="background:#1E293B;color:white;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);">You</div>
-      <div style="width:16px;height:16px;background:#2563EB;border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>
-    </div>`,
-    iconSize: [90, 42], iconAnchor: [45, 34],
+    className:   'pill-leaflet-marker',
+    html:        `<div class="pill-marker-root" style="width:${PILL_W}px;height:${PILL_H}px;line-height:0">${SVG_TRAVELER_PILL}</div>`,
+    iconSize:    PILL_MARKER_SIZE,
+    iconAnchor:  PILL_MARKER_ANCHOR,
+    popupAnchor: [0, PILL_POPUP_ANCHOR_Y],
   });
 }
 
@@ -27,14 +112,12 @@ function makeDropIcon() {
 }
 
 function makeDriverIcon() {
-  const svg = `<svg width="40" height="40" viewBox="0 0 653 653" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_335_134)"><rect width="653" height="653" rx="326.5" fill="white"/><circle cx="327" cy="325" r="304" fill="#005EFF"/><path fill-rule="evenodd" clip-rule="evenodd" d="M218.971 546.812H314.478V451.305C264.332 456.849 224.515 496.666 218.971 546.812ZM338.52 451.305V546.812H434.026C428.482 496.666 388.666 456.849 338.52 451.305ZM434.027 570.854C432.348 586.056 427.523 600.294 420.22 612.918L441.031 624.956C452.288 605.495 458.728 582.897 458.728 558.833C458.728 485.805 399.526 426.604 326.499 426.604C253.471 426.604 194.27 485.805 194.27 558.833C194.27 582.897 200.709 605.495 211.967 624.956L232.777 612.918C225.474 600.294 220.649 586.056 218.97 570.854H434.027Z" fill="white"/><path d="M362.562 558.834C362.562 578.751 346.417 594.896 326.5 594.896C306.583 594.896 290.438 578.751 290.438 558.834C290.438 538.917 306.583 522.771 326.5 522.771C346.417 522.771 362.562 538.917 362.562 558.834Z" fill="white"/><path d="M417.673 520.906C414.236 508.081 421.848 494.898 434.673 491.461L457.896 485.239C470.721 481.803 483.904 489.414 487.34 502.239L499.785 548.684C503.222 561.51 495.61 574.692 482.785 578.129L459.563 584.352C446.737 587.788 433.555 580.177 430.118 567.351L417.673 520.906Z" fill="white"/><path d="M165.661 502.229C169.098 489.404 182.28 481.793 195.106 485.23L218.328 491.453C231.153 494.888 238.764 508.072 235.328 520.897L222.884 567.341C219.447 580.168 206.264 587.778 193.439 584.343L170.216 578.119C157.39 574.683 149.779 561.501 153.216 548.674L165.661 502.229Z" fill="white"/><path fill-rule="evenodd" clip-rule="evenodd" d="M218.312 282.354V246.291H242.354V282.354C242.354 328.826 280.027 366.499 326.5 366.499C372.973 366.499 410.646 328.826 410.646 282.354V246.291H434.687V282.354C434.687 342.104 386.251 390.541 326.5 390.541C266.749 390.541 218.312 342.104 218.312 282.354Z" fill="white"/><path fill-rule="evenodd" clip-rule="evenodd" d="M203.818 210.23H449.705C450.569 208.024 451.502 205.424 452.431 202.448L452.577 201.982C455.819 191.605 458.728 182.293 458.728 163.31C458.728 153.683 452.473 145.578 444.195 139.168C435.807 132.675 424.351 127.115 411.591 122.584C386.037 113.508 353.809 108.053 326.499 108.053C299.189 108.053 266.961 113.508 241.407 122.584C228.647 127.115 217.191 132.675 208.803 139.168C200.524 145.578 194.27 153.683 194.27 163.31C194.27 180.933 197.217 190.221 200.245 199.766C200.528 200.655 200.81 201.546 201.091 202.446C202.021 205.423 202.953 208.023 203.818 210.23ZM278.415 174.167C278.415 167.528 283.797 162.146 290.436 162.146H362.561C369.2 162.146 374.582 167.528 374.582 174.167C374.582 180.806 369.2 186.188 362.561 186.188H290.436C283.797 186.188 278.415 180.806 278.415 174.167Z" fill="white"/><path fill-rule="evenodd" clip-rule="evenodd" d="M206.55 239.207C207.096 236.349 209.713 234.271 212.767 234.271H440.235C443.289 234.271 445.906 236.349 446.452 239.207L446.454 239.222L446.458 239.236L446.464 239.271L446.479 239.353L446.513 239.571C446.539 239.741 446.567 239.959 446.595 240.219C446.65 240.742 446.701 241.444 446.708 242.299C446.723 244.01 446.565 246.35 445.917 249.106C444.607 254.678 441.34 261.761 433.857 268.644C419.022 282.29 388.543 294.376 326.501 294.376C264.459 294.376 233.98 282.29 219.145 268.644C211.662 261.761 208.395 254.678 207.085 249.106C206.437 246.35 206.279 244.01 206.294 242.299C206.301 241.444 206.352 240.742 206.407 240.219C206.434 239.959 206.463 239.741 206.489 239.571L206.523 239.353L206.538 239.271L206.544 239.236L206.547 239.222L206.55 239.207Z" fill="white"/></g><defs><clipPath id="clip0_335_134"><rect width="653" height="653" rx="326.5" fill="white"/></clipPath></defs></svg>`;
   return L.divIcon({
-    className: '',
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-      <div style="background:#2563EB;color:white;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 6px rgba(37,99,235,0.4);">Driver</div>
-      <div style="width:40px;height:40px;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);overflow:hidden;">${svg}</div>
-    </div>`,
-    iconSize: [90, 62], iconAnchor: [45, 42],
+    className:   'pill-leaflet-marker',
+    html:        `<div class="pill-marker-root" style="width:${PILL_W}px;height:${PILL_H}px;line-height:0">${SVG_DRIVER_PILL}</div>`,
+    iconSize:    PILL_MARKER_SIZE,
+    iconAnchor:  PILL_MARKER_ANCHOR,
+    popupAnchor: [0, PILL_POPUP_ANCHOR_Y],
   });
 }
 
@@ -64,15 +147,36 @@ function getTargetLatLng() {
 }
 
 async function drawRoute(dLat, dLng) {
+  if (!map) return;
+  if (shouldSkipOsrmFetch(dLat, dLng)) return;
   try {
+    const phase = currentTarget;
     const t = getTargetLatLng();
     const url  = `https://router.project-osrm.org/route/v1/driving/${dLng},${dLat};${t.lng},${t.lat}?overview=full&geometries=geojson`;
     const data = await fetch(url).then(r => r.json());
     if (!data.routes?.length) return;
-    const coords = data.routes[0].geometry.coordinates.map(([lo, la]) => [la, lo]);
+    const route = data.routes[0];
+    const coords = route.geometry.coordinates.map(([lo, la]) => [la, lo]);
     if (routeLine) map.removeLayer(routeLine);
     routeLine = L.polyline(coords, { color: '#2563EB', weight: 5, opacity: 0.85 }).addTo(map);
     routeLine.bringToBack();
+
+    alignMarkersToRouteGeometry(coords, phase);
+
+    lastRouteFetchAt     = Date.now();
+    lastRouteDriverLat   = dLat;
+    lastRouteDriverLng   = dLng;
+    lastRouteTargetPhase = phase;
+
+    const distanceMeters   = typeof route.distance === 'number' ? route.distance : NaN;
+    const durationSeconds  = typeof route.duration === 'number' ? route.duration : NaN;
+    if (!Number.isNaN(distanceMeters) && routeMetricsListener) {
+      routeMetricsListener({
+        distanceMeters,
+        durationSeconds: Number.isNaN(durationSeconds) ? 0 : durationSeconds,
+        phase: phase === 'drop' ? 'drop' : 'pickup',
+      });
+    }
   } catch (e) { logErr('OSRM error', e); }
 }
 
@@ -81,6 +185,20 @@ function fitToMarkers(dLat, dLng, animate = true) {
   map.fitBounds(
     L.latLngBounds([[dLat, dLng], [t.lat, t.lng]]),
     { padding: [80, 80], maxZoom: 18, animate },
+  );
+}
+
+/** OSRM geometry is snapped to roads; raw GPS/address can sit off the line — pin endpoints to the polyline. */
+function alignMarkersToRouteGeometry(coords, phase) {
+  if (!coords?.length) return;
+  const start = coords[0];
+  const end   = coords[coords.length - 1];
+  if (driverMarker) driverMarker.setLatLng(start);
+  if (phase === 'pickup' && pickupMarker) pickupMarker.setLatLng(end);
+  if (phase === 'drop' && dropMarker) dropMarker.setLatLng(end);
+  map.fitBounds(
+    L.latLngBounds([start, end]),
+    { padding: [80, 80], maxZoom: 18, animate: true },
   );
 }
 
@@ -131,6 +249,8 @@ export function zoomToPickup() {
 export function clearDriverOverlays() {
   if (driverMarker) { map.removeLayer(driverMarker); driverMarker = null; }
   if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  resetRouteFetchState();
+  routeMetricsListener?.(null);
   if (map && !isNaN(pickupLat) && !isNaN(pickupLng)) {
     map.flyTo([pickupLat, pickupLng], 16, { duration: 0.5 });
   }
@@ -139,6 +259,8 @@ export function clearDriverOverlays() {
 export function clearPickupAndRoute() {
   if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
   if (routeLine)    { map.removeLayer(routeLine);    routeLine    = null; }
+  resetRouteFetchState();
+  routeMetricsListener?.(null);
   if (driverMarker && map) {
     map.flyTo(driverMarker.getLatLng(), 16, { duration: 0.5 });
   }
