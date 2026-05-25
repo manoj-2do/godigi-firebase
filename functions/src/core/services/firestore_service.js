@@ -29,6 +29,25 @@ const getUserByFleetId = async (fleet_id) => {
 
 const userExistsWithFleetId = async (fleet_id) => (await getUserByFleetId(fleet_id)) != null;
 
+const getUserByDriverCode = async (driver_code) => {
+  const snap = await admin
+    .firestore()
+    .collection(config.collections.users)
+    .where("driver_code", "==", driver_code)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  return { uid: doc.id, data: doc.data() };
+};
+
+const updateUserInFirestore = async (uid, patch) => {
+  await admin.firestore().collection(config.collections.users).doc(uid).update({
+    ...patch,
+    updated_at: FieldValue.serverTimestamp(),
+  });
+};
+
 const createSupplierConfigInFirestore = async (supplier_id,  encrypted_key, name ) => {
   await admin.firestore().collection(config.collections.supplierConfig).doc(`${supplier_id}`).set({
     supplier_id,
@@ -80,10 +99,53 @@ const createSupplierInFirestore = async (supplier_id, data) => {
   });
 };
 
+const createSupplierInFirestoreV2 = async (supplier_org_code, data) => {
+  const db = admin.firestore();
+  const ref = db.collection(config.collections.suppliers).doc(`${supplier_org_code}`);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (snap.exists) {
+      const err = new Error("A supplier with this supplier_org_code already exists");
+      err.code = "SUPPLIER_ORG_CODE_ALREADY_EXISTS";
+      throw err;
+    }
+    transaction.set(ref, data);
+  });
+};
+
+/** supplier_code on users maps to suppliers doc id (supplier_org_code). */
+const supplierExistsByOrgCode = async (supplier_org_code) => {
+  const snap = await admin
+    .firestore()
+    .collection(config.collections.suppliers)
+    .doc(`${supplier_org_code}`)
+    .get();
+  return snap.exists;
+};
+
+const updateSupplierInFirestoreV2 = async (supplier_org_code, data) => {
+  const db = admin.firestore();
+  const ref = db.collection(config.collections.suppliers).doc(`${supplier_org_code}`);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) {
+      const err = new Error("Supplier not found");
+      err.code = "SUPPLIER_NOT_FOUND";
+      throw err;
+    }
+    transaction.update(ref, data);
+  });
+};
+
 module.exports = {
   createSupplierConfigInFirestore,
   createSupplierInFirestore,
+  createSupplierInFirestoreV2,
+  updateSupplierInFirestoreV2,
+  supplierExistsByOrgCode,
   createUserInFirestore,
+  getUserByDriverCode,
+  updateUserInFirestore,
   getUserByFleetId,
   userExistsWithFleetId,
   createTripTrackingInFirestore,

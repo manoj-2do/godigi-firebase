@@ -4,7 +4,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { validateSecret } = require("../core/middleware/validate_secret");
 const { validateCreateUserBody } = require("../core/validators/create_user_payload_validators");
 const { buildCreateUserDoc } = require("../core/builders/create_user_doc_builder");
-const { createAuthUser, getUserByEmail, deleteAuthUser } = require("../core/services/auth_service");
+const { createAuthUserWithEmail, getUserByEmail, deleteAuthUser } = require("../core/services/auth_service");
 const { createUserInFirestore } = require("../core/services/firestore_service");
 
 exports.createUserService = onRequest(
@@ -35,7 +35,11 @@ exports.createUserService = onRequest(
         return;
       }
 
-      userRecord = await createAuthUser(auth);
+      userRecord = await createAuthUserWithEmail(auth);
+      if (!userRecord || !userRecord.uid) {
+        response.status(500).json({ error: "Failed to create user" });
+        return;
+      }
 
       await createUserInFirestore(userRecord.uid, doc);
 
