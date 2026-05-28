@@ -12,10 +12,10 @@ const buildUpdateUserPatchV2 = (body) => {
   if (Object.prototype.hasOwnProperty.call(body, "email")) {
     patch.email = body.email != null && body.email !== "" ? String(body.email).trim() : "";
   }
-  if (Object.prototype.hasOwnProperty.call(body, "supplier_org_code")) {
-    patch.supplier_org_code =
-      body.supplier_org_code != null && body.supplier_org_code !== ""
-        ? String(body.supplier_org_code).trim()
+  if (Object.prototype.hasOwnProperty.call(body, "supplier_code")) {
+    patch.supplier_code =
+      body.supplier_code != null && body.supplier_code !== ""
+        ? String(body.supplier_code).trim()
         : null;
   }
   if (Object.prototype.hasOwnProperty.call(body, "role")) {

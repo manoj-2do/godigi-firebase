@@ -29,11 +29,11 @@ exports.createUserServiceV2 = onRequest(
 
     const { auth, doc } = buildCreateUserDocV2(body);
 
-    if (doc.supplier_org_code) {
-      const supplierFound = await supplierExistsByOrgCode(doc.supplier_org_code);
+    if (doc.supplier_code) {
+      const supplierFound = await supplierExistsByOrgCode(doc.supplier_code);
       if (!supplierFound) {
         response.status(404).json({
-          error: `Supplier not found for supplier_org_code: ${body.supplier_org_code}`,
+          error: `Supplier not found for supplier_code: ${body.supplier_code}`,
         });
         return;
       }

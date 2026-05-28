@@ -48,7 +48,7 @@ const updateUserInFirestore = async (uid, patch) => {
   });
 };
 
-const createSupplierConfigInFirestore = async (supplier_id,  encrypted_key, name ) => {
+const createSupplierConfigInFirestore = async (supplier_id, encrypted_key, name) => {
   await admin.firestore().collection(config.collections.supplierConfig).doc(`${supplier_id}`).set({
     supplier_id,
     key: encrypted_key ? encrypted_key : "",
