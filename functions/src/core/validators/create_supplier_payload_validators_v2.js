@@ -26,9 +26,6 @@ const validateField = (key, value, rule) => {
 };
 
 const FORBIDDEN_CLIENT_KEYS = [
-  "supplier_id",
-  "supplier_code",
-  "supplier_org",
   "key",
   "api_key",
   "created_at",

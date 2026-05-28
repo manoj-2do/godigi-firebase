@@ -7,7 +7,7 @@ const SCHEMA = {
   driver_code: { type: "string", required: true },
   display_name: { type: "string", required: false },
   email: { type: "email", required: false },
-  supplier_code: { type: "string", required: false },
+  supplier_org_code: { type: "string", required: false },
   role: { type: "string", required: false },
   vehicle_number: { type: "string", required: false },
   is_freelancer: { type: "boolean", required: false },

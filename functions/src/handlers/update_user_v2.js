@@ -33,11 +33,11 @@ exports.updateUserServiceV2 = onRequest(async (request, response) => {
   const driver_code = String(body[LOOKUP_KEY]).trim();
   const patch = buildUpdateUserPatchV2(body);
 
-  if (patch.supplier_code) {
-    const supplierFound = await supplierExistsByOrgCode(patch.supplier_code);
+  if (patch.supplier_org_code) {
+    const supplierFound = await supplierExistsByOrgCode(patch.supplier_org_code);
     if (!supplierFound) {
       response.status(404).json({
-        error: `Supplier not found for supplier_code: ${body.supplier_code}`,
+        error: `Supplier not found for supplier_org_code: ${body.supplier_org_code}`,
       });
       return;
     }
