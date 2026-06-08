@@ -2,7 +2,7 @@
 
 const SCHEMA = {
   task_id:             { type: "int",  required: true },
-  task_status:         { type: "intRange", required: true, min: 0, max: 5 },
+  task_status:         { type: "intRange", required: true, min: -1, max: 5 },
   booking_code:        { type: "string",  required: true },
   component_code:      { type: "string",  required: true },
   requirement_code:    { type: "string",  required: true },

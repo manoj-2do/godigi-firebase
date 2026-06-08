@@ -6,6 +6,7 @@ const { validateCreateTaskBody } = require("../core/validators/create_task_paylo
 const { buildCreateTaskDoc } = require("../core/builders/create_task_doc_builder");
 const { createTaskInFirestore, getUserByFleetId } = require("../core/services/firestore_service");
 const { buildTrackingLink } = require("../core/utils/tracking_link");
+const { enableTrackingLinkOnBooking } = require("../integrations/ontrip/ontrip_client");
 
 exports.createTaskService = onRequest(
   async (request, response) => {
@@ -44,6 +45,19 @@ exports.createTaskService = onRequest(
 
     try {
       await createTaskInFirestore(doc.task_id, doc);
+
+      if (doc.task_status === 1 || doc.task_status === -1) {
+        try {
+          await enableTrackingLinkOnBooking({
+            booking_code: doc.booking_code,
+            component_code: doc.component_code,
+            is_tracking_link_enabled: doc.task_status === 1,
+          });
+        } catch (ontripErr) {
+          console.error("Ontrip enableTrackingLinkOnBooking failed", ontripErr);
+        }
+      }
+
       response.status(200).json({
         task_id: doc.task_id,
         link_signature: doc.link_signature,

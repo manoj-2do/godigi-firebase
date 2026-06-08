@@ -6,6 +6,10 @@ module.exports = {
   trackingHostUrl:
     process.env.TRACKING_HOST_URL ||
     (process.env.GCLOUD_PROJECT ? `https://${process.env.GCLOUD_PROJECT}.web.app` : undefined),
+  ontrip: {
+    baseUrl: process.env.ONTRIP_API_BASE_URL,
+    apiSecret: process.env.ONTRIP_API_SECRET,
+  },
   collections: {
     users: "users",
     auditLogs: "audit_logs",
